@@ -9,7 +9,7 @@ import {
   getFollowedChats,
   followChat,
   unfollowChat,
-} from "@/lib/data"
+} from "@/lib/api-client"
 import type { Comment, Chat, FollowedChat } from "@/lib/types"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"

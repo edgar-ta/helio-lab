@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { getFollowedChats, getNotifications } from "@/lib/data"
+import { getFollowedChats, getNotifications } from "@/lib/api-client"
 import type { FollowedChat, Notification } from "@/lib/types"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -22,22 +22,22 @@ export function AppSidebar() {
 
   useEffect(() => {
     if (user) {
-      getFollowedChats(user.id).then(setFollowedChats)
-      getNotifications(user.id).then(setNotifications)
+      getFollowedChats({ userId: user.id }).then(setFollowedChats)
+      getNotifications({ userId: user.id }).then(setNotifications)
     }
   }, [user])
 
   if (!user) return null
 
   const unreadCount = notifications.filter((n) => !n.has_been_read).length
-  const initials = user.full_name
+  const initials = (user.name + " " + user.last_name)
     .split(" ")
     .map((n) => n[0])
     .join("")
     .slice(0, 2)
 
-  function handleLogout() {
-    logout()
+  async function handleLogout() {
+    await logout()
     router.replace("/login")
   }
 
@@ -60,12 +60,12 @@ export function AppSidebar() {
         )}
       >
         <Avatar className="size-10">
-          <AvatarImage src={user.profile_picture} alt={user.full_name} />
+          <AvatarImage src={user.profile_picture} alt={user.name + " " + user.last_name} />
           <AvatarFallback>{initials}</AvatarFallback>
         </Avatar>
         <div className="flex flex-col overflow-hidden">
           <span className="truncate text-sm font-semibold text-foreground">
-            {user.full_name}
+            {user.name}
           </span>
           <span className="truncate text-xs text-muted-foreground">
             {user.degree}

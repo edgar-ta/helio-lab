@@ -1,3 +1,4 @@
+// auth-context.tsx
 "use client"
 
 import {
@@ -8,11 +9,11 @@ import {
   useCallback,
   type ReactNode,
 } from "react"
-import type { User } from "./types"
-import { authenticateUser, getUser } from "./data"
+import type { UserLocal } from "./types-local"
+import { authenticateUser, getCurrentUser } from "./api-client"
 
 interface AuthContextValue {
-  user: User | null
+  user: UserLocal | null
   loading: boolean
   login: (email: string, password: string) => Promise<{ error?: string }>
   logout: () => void
@@ -22,42 +23,35 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<UserLocal | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const stored = localStorage.getItem("heliolab_user_id")
-    if (stored) {
-      getUser(stored).then((u) => {
-        setUser(u)
-        setLoading(false)
-      })
-    } else {
-      setLoading(false)
-    }
+    getCurrentUser({})
+      .then((u) => setUser(u ?? null))
+      .finally(() => setLoading(false))
   }, [])
 
   const login = useCallback(
     async (email: string, password: string): Promise<{ error?: string }> => {
-      const u = await authenticateUser(email, password)
+      const u = await authenticateUser({ email, password })
       if (!u) {
         return { error: "Credenciales invalidas" }
       }
       setUser(u)
-      localStorage.setItem("heliolab_user_id", u.id)
       return {}
     },
     []
   )
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    await fetch("/api/logout", { method: "POST", credentials: "include", body: JSON.stringify({}) })
     setUser(null)
-    localStorage.removeItem("heliolab_user_id")
   }, [])
 
   const refreshUser = useCallback(async () => {
     if (user) {
-      const u = await getUser(user.id)
+      const u = await getCurrentUser({})
       if (u) setUser(u)
     }
   }, [user])
