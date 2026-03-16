@@ -1,84 +1,112 @@
-export type Timezone = "America/Mexico_City" | "Europe/Madrid"
+// ─────────────────────────────────────────────
+// Primitives
+// ─────────────────────────────────────────────
 
-export interface User {
-  id: string
-  email: string
-  password: string // mock only — will be removed with Firebase Auth
-  full_name: string
-  degree: string
-  profile_picture: string
-  last_seen_chat_time: string
-  timezone: Timezone
+type Id = string;
+type Timestamp = Date;
+type GeoPoint = { latitude: number; longitude: number };
+type Reference = Id;
+
+// ─────────────────────────────────────────────
+// Namespace: Machine
+// ─────────────────────────────────────────────
+
+export interface Reading {
+  id: Id;
+  date: Timestamp;
+  current: number;
+  voltage: number;
+  irradiance: number;
 }
 
 export interface Prototype {
-  id: string
-  name: string
-  location: { lat: number; lng: number }
-  owner: string
+  id: Id;
+  location: GeoPoint;
+  name: string;
+  code: string;
+  readings: Reading[];
+  owner: Reference;
 }
 
-export interface Reading {
-  id: string
-  prototypeId: string
-  date: string
-  current: number
-  voltage: number
-  irradiance: number
+// ─────────────────────────────────────────────
+// Namespace: Chatting
+// ─────────────────────────────────────────────
+
+export interface Mention {
+  // Extend with mention-specific fields as needed
+  [key: string]: unknown;
 }
 
 export interface Chat {
-  id: string
-  creation_date: string
-  creator: string
-  participants: string[]
+  id: Id;
+  creation_date: Timestamp;
+  last_message_time: Timestamp;
+  creator: Reference;
+  readings?: Reading[];
+  commenters: Reference[];
+  followers: Reference[];
 }
 
 export interface Comment {
-  id: string
-  chat: string
-  full_name: string
-  creation_date: string
-  author: string
-  degree: string
-  text: string
-  mentions?: Mention[]
-  highlight_start?: string
-  highlight_end?: string
-  prototype?: string
+  id: Id;
+  chat: Reference;
+  full_name: string;
+  creation_date: Timestamp;
+  author: Reference;
+  degree: string;
+  text: string;
+  mentions?: Mention[];
+  highlight_start?: Timestamp;
+  highlight_end?: Timestamp;
 }
 
-export interface Mention {
-  userId: string
-  full_name: string
+// ─────────────────────────────────────────────
+// Namespace: PersonalInteraction
+// ─────────────────────────────────────────────
+
+export interface User {
+  id: Id;
+  name: string;
+  last_name: string;
+  hashed_password: string;
+  role: string;
+  email: string;
+  degree: string;
+  profile_picture: string;
+  last_chat_seen_time: Timestamp;
+  last_interaction_time: Timestamp;
+  timezone: string;
+}
+
+export interface Admin {
+  id: Id;
+  name: string;
+  last_name: string;
+  hashed_password: string;
+  role: string;
 }
 
 export interface FollowedChat {
-  id: string
-  creation_date: string
-  index: number
-  owner: string
-  chat: string
-  last_seen_message_time: string
-  last_message_time: string
-  silenced: boolean
-  name: string
+  id: Id;
+  creation_date: Timestamp;
+  index: number;
+  owner: Reference;
+  chat: Reference;
+  last_message_seen_time: Reference;
+  silenced: boolean;
+  name: string;
 }
 
 export interface Notification {
-  id: string
-  type: "new_comment" | "mention" | "new_reply"
-  has_been_read: boolean
-  saved_chat?: string
-  creation_date: string
-  text: string
-  actor_name: string
+  id: Id;
+  type: string;
+  has_been_read: boolean;
+  followed_chat?: Reference;
+  user: Reference;
+  creation_date: Timestamp;
 }
 
 export interface Connection {
-  id: string
-  owner: string
-  name: string
-  url: string
-  icon: string
+  id: string;
+  owner: string;
 }

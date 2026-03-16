@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { getReadings, getComments } from "@/lib/data"
+import { getReadings, getComments } from "@/lib/api-client"
 import { PROTOTYPES } from "@/lib/mock-data"
 import type { Reading, Comment } from "@/lib/types"
 import { PrototypeChart } from "@/components/prototype-chart"
@@ -9,17 +9,30 @@ import { CommentFeed } from "@/components/comment-feed"
 import { NewCommentDialog } from "@/components/new-comment-dialog"
 import { ConnectionsPanel } from "@/components/connections-panel"
 
+/**
+ * 
+ * Feed
+ * FollowedChats
+ * Readings
+ * 
+ * @returns 
+ */
 export default function DashboardPage() {
   const prototype = PROTOTYPES[0]
   const [readings, setReadings] = useState<Reading[]>([])
   const [comments, setComments] = useState<Comment[]>([])
 
   const loadData = useCallback(async () => {
-    const [r, c] = await Promise.all([
-      getReadings(prototype.id),
+    const [rs, c] = await Promise.all([
+      getReadings({ prototypeId: "TVcXS3QLvugbY6AYMcUk" }),
       getComments(prototype.id),
     ])
-    setReadings(r)
+    setReadings(rs.map(function(r) {
+      return {
+        ...r,
+        date: new Date(r.date)
+      }
+    }))
     setComments(c)
   }, [prototype.id])
 

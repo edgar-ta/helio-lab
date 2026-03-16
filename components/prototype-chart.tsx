@@ -22,10 +22,9 @@ interface PrototypeChartProps {
   comments: Comment[]
 }
 
-function formatTime(isoString: string) {
-  const d = new Date(isoString)
-  const hours = d.getHours()
-  const minutes = d.getMinutes().toString().padStart(2, "0")
+function formatTime(date: Date) {
+  const hours = date.getHours()
+  const minutes = date.getMinutes().toString().padStart(2, "0")
   const period = hours >= 12 ? "p.m." : "a.m."
   const h = hours % 12 || 12
   return `${h.toString().padStart(2, "0")}:${minutes} ${period}`
@@ -171,15 +170,15 @@ export function PrototypeChart({
               className="absolute -translate-x-1/2 transition-transform hover:scale-110"
               style={{ left: `${ap.percent}%` }}
               onClick={() => handleHighlightClick(ap.chatId)}
-              aria-label={`Ver chat de ${ap.user?.full_name}`}
+              aria-label={`Ver chat de ${ap.user?.name}`}
             >
               <Avatar className="size-8 border-2 border-card">
                 <AvatarImage
                   src={ap.user?.profile_picture}
-                  alt={ap.user?.full_name ?? ""}
+                  alt={ap.user?.name ?? ""}
                 />
                 <AvatarFallback className="text-[10px]">
-                  {ap.user?.full_name?.slice(0, 2) ?? "?"}
+                  {ap.user?.name?.slice(0, 2) ?? "?"}
                 </AvatarFallback>
               </Avatar>
             </button>
