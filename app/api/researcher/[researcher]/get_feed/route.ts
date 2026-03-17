@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import * as admin from "firebase-admin";
 import { db } from "@/lib/firebase-admin";
 
 const CHATS_PER_BATCH = parseInt(process.env.CHATS_PER_BATCH_OF_FEED ?? "20");
@@ -8,7 +9,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { researcher: string } }
 ) {
-  const { researcher } = params;
+  const { researcher } = await params;
   const { latest_chat_id } = await req.json();
 
   const researcherRef = db.collection("User").doc(researcher);
@@ -17,10 +18,13 @@ export async function POST(
     return NextResponse.json({ error: "Researcher not found" }, { status: 404 });
   }
 
-  let query = db.collection("Chat").orderBy("creation_date", "desc");
+  // ── 1. Fetch the raw chat batch ──────────────────────────────────────────
+
+  let query = db
+    .collection("Chat")
+    .orderBy("creation_date", "desc") as admin.firestore.Query;
 
   if (latest_chat_id) {
-    // Get the creation_date of the reference chat for cursor-based pagination
     const latestChatSnap = await db.collection("Chat").doc(latest_chat_id).get();
     if (!latestChatSnap.exists) {
       return NextResponse.json(
@@ -28,18 +32,80 @@ export async function POST(
         { status: 404 }
       );
     }
-    const latestChatDate = latestChatSnap.data()!.creation_date;
-
-    // Fetch chats with creation_date <= latestChatDate, excluding the reference chat
-    query = query.where("creation_date", "<=", latestChatDate);
+    query = query.where(
+      "creation_date",
+      "<=",
+      latestChatSnap.data()!.creation_date
+    );
   }
 
   const snapshot = await query.limit(CHATS_PER_BATCH + 1).get();
 
-  const chats = snapshot.docs
+  const chatDocs = snapshot.docs
     .filter((d) => d.id !== latest_chat_id)
-    .slice(0, CHATS_PER_BATCH)
-    .map((d) => ({ id: d.id, ...d.data() }));
+    .slice(0, CHATS_PER_BATCH);
 
-  return NextResponse.json({ chats }, { status: 200 });
+  if (chatDocs.length === 0) {
+    return NextResponse.json({ chats: [] }, { status: 200 });
+  }
+
+  // ── 2. Resolve creator, prototype, readings and first_comment in parallel ─
+
+  const chatAsPostList = await Promise.all(
+    chatDocs.map(async (chatDoc) => {
+      const chat = chatDoc.data();
+
+      const creatorRef = chat.creator as admin.firestore.DocumentReference;
+      const prototypeRef = chat.prototype as
+        | admin.firestore.DocumentReference
+        | undefined;
+      const firstCommentRef = chat.first_comment as admin.firestore.DocumentReference;
+
+      const [creatorSnap, prototypeSnap, readingsSnap, firstCommentSnap] =
+        await Promise.all([
+          creatorRef.get(),
+          prototypeRef ? prototypeRef.get() : Promise.resolve(null),
+          chatDoc.ref.collection("readings").get(),
+          firstCommentRef.get(),
+        ]);
+
+      const creator = creatorSnap.data() ?? {};
+
+      const readings = readingsSnap.docs.map((r) => {
+        const d = r.data();
+        return {
+          id: r.id,
+          date: (d.date as admin.firestore.Timestamp).toDate().toISOString(),
+          current: d.current as number,
+          voltage: d.voltage as number,
+          irradiance: d.irradiance as number,
+        };
+      });
+
+      return {
+        chat: chatDoc.id,
+        creation_date: (chat.creation_date as admin.firestore.Timestamp)
+          .toDate()
+          .toISOString(),
+        creator: {
+          name: creator.name as string,
+          last_name: creator.last_name as string,
+          degree: creator.degree as string,
+          timezone: creator.timezone as string,
+          profile_picture: creator.profile_picture as string,
+        },
+        commenters: (
+          chat.commenters as admin.firestore.DocumentReference[]
+        ).map((ref) => ref.id),
+        followers: (
+          chat.followers as admin.firestore.DocumentReference[]
+        ).map((ref) => ref.id),
+        readings,
+        prototype_name: prototypeSnap?.data()?.name ?? null,
+        first_comment_text: firstCommentSnap.data()?.text ?? null,
+      };
+    })
+  );
+
+  return NextResponse.json({ chats: chatAsPostList }, { status: 200 });
 }

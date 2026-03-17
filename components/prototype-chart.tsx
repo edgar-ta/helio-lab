@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useRef, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import {
   LineChart,
@@ -16,10 +16,16 @@ import type { Reading, Comment } from "@/lib/types"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { USERS } from "@/lib/mock-data"
 
+export interface SelectionRange {
+  startDate: Date
+  endDate: Date
+}
+
 interface PrototypeChartProps {
   prototypeName: string
   readings: Reading[]
   comments: Comment[]
+  onSelectionComplete?: (range: SelectionRange) => void
 }
 
 function formatTime(date: Date) {
@@ -34,22 +40,37 @@ export function PrototypeChart({
   prototypeName,
   readings,
   comments,
+  onSelectionComplete,
 }: PrototypeChartProps) {
   const router = useRouter()
+
+  // Drag-selection state
+  const [selectionStart, setSelectionStart] = useState<string | null>(null)
+  const [selectionEnd, setSelectionEnd] = useState<string | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const isDraggingRef = useRef(false)
 
   const chartData = useMemo(() => {
     return readings.map((r) => ({
       time: new Date(r.date).getTime(),
       timeLabel: formatTime(r.date),
+      // Keep original date for selection
+      date: r.date instanceof Date ? r.date : new Date(r.date),
       voltage: Math.round(r.voltage * 10) / 10,
     }))
   }, [readings])
+
+  // Map timeLabel → date for resolving selection
+  const timeLabelToDate = useMemo(() => {
+    const map = new Map<string, Date>()
+    chartData.forEach((d) => map.set(d.timeLabel, d.date))
+    return map
+  }, [chartData])
 
   const highlightedComments = useMemo(() => {
     return comments.filter((c) => c.highlight_start && c.highlight_end)
   }, [comments])
 
-  // Get unique comment avatars positioned by their highlight center
   const avatarPositions = useMemo(() => {
     if (!chartData.length) return []
     const minTime = chartData[0].time
@@ -75,22 +96,93 @@ export function PrototypeChart({
     router.push(`/chat/${chatId}`)
   }
 
-  if (!chartData.length) return null
+  // Recharts mouse event handlers
+  const handleMouseDown = useCallback((e: any) => {
+    if (!e?.activeLabel) return
+    isDraggingRef.current = true
+    setIsDragging(true)
+    setSelectionStart(e.activeLabel)
+    setSelectionEnd(null)
+  }, [])
 
-  const minTime = chartData[0].time
-  const maxTime = chartData[chartData.length - 1].time
+  const handleMouseMove = useCallback((e: any) => {
+    if (!isDraggingRef.current || !e?.activeLabel) return
+    setSelectionEnd(e.activeLabel)
+  }, [])
+
+  const handleMouseUp = useCallback((e: any) => {
+    if (!isDraggingRef.current) return
+    isDraggingRef.current = false
+    setIsDragging(false)
+
+    const endLabel = e?.activeLabel ?? selectionEnd
+    if (!selectionStart || !endLabel) {
+      setSelectionStart(null)
+      setSelectionEnd(null)
+      return
+    }
+
+    const startDate = timeLabelToDate.get(selectionStart)
+    const endDate = timeLabelToDate.get(endLabel)
+
+    if (!startDate || !endDate || startDate.getTime() === endDate.getTime()) {
+      setSelectionStart(null)
+      setSelectionEnd(null)
+      return
+    }
+
+    // Normalize order
+    const [sd, ed] =
+      startDate <= endDate ? [startDate, endDate] : [endDate, startDate]
+
+    onSelectionComplete?.({ startDate: sd, endDate: ed })
+
+    // Clear drag state (keep highlight visible until drawer closes)
+    setSelectionStart(null)
+    setSelectionEnd(null)
+  }, [selectionStart, selectionEnd, timeLabelToDate, onSelectionComplete])
+
+  if (!chartData.length) return null
 
   return (
     <div className="flex flex-col gap-2">
       <div className="rounded-lg border border-border bg-card p-4">
-        <h2 className="mb-3 text-lg font-bold text-card-foreground">
-          {prototypeName}
-        </h2>
-        <div className="h-64">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-card-foreground">
+            {prototypeName}
+          </h2>
+          {isDragging && (
+            <span className="animate-pulse text-xs text-muted-foreground">
+              Arrastra para seleccionar un rango
+            </span>
+          )}
+          {!isDragging && (
+            <span className="text-xs text-muted-foreground">
+              Haz clic y arrastra para comentar
+            </span>
+          )}
+        </div>
+
+        {/* Chart wrapper — cursor crosshair while dragging */}
+        <div
+          className={`h-64 ${isDragging ? "cursor-col-resize" : "cursor-crosshair"}`}
+          // Prevent text selection during drag
+          onMouseLeave={() => {
+            if (isDraggingRef.current) {
+              isDraggingRef.current = false
+              setIsDragging(false)
+              setSelectionStart(null)
+              setSelectionEnd(null)
+            }
+          }}
+        >
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={chartData}
               margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
             >
               <CartesianGrid
                 strokeDasharray="3 3"
@@ -108,17 +200,20 @@ export function PrototypeChart({
                 className="text-muted-foreground"
                 domain={["auto", "auto"]}
               />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "var(--color-card)",
-                  borderColor: "var(--color-border)",
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-                labelStyle={{ color: "var(--color-card-foreground)" }}
-              />
+              {/* Hide tooltip while dragging to avoid distraction */}
+              {!isDragging && (
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "var(--color-card)",
+                    borderColor: "var(--color-border)",
+                    borderRadius: 8,
+                    fontSize: 12,
+                  }}
+                  labelStyle={{ color: "var(--color-card-foreground)" }}
+                />
+              )}
 
-              {/* Highlight areas for comments */}
+              {/* Existing comment highlights */}
               {highlightedComments.map((c) => (
                 <ReferenceArea
                   key={c.id}
@@ -148,13 +243,27 @@ export function PrototypeChart({
                 />
               ))}
 
+              {/* Active drag selection highlight */}
+              {isDragging && selectionStart && selectionEnd && (
+                <ReferenceArea
+                  x1={selectionStart}
+                  x2={selectionEnd}
+                  fill="var(--color-primary)"
+                  fillOpacity={0.15}
+                  stroke="var(--color-primary)"
+                  strokeOpacity={0.4}
+                  strokeWidth={1}
+                  strokeDasharray="4 2"
+                />
+              )}
+
               <Line
                 type="monotone"
                 dataKey="voltage"
                 stroke="var(--color-chart-1)"
                 strokeWidth={2}
                 dot={false}
-                activeDot={{ r: 4, fill: "var(--color-chart-1)" }}
+                activeDot={isDragging ? false : { r: 4, fill: "var(--color-chart-1)" }}
               />
             </LineChart>
           </ResponsiveContainer>

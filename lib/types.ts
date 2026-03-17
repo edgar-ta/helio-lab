@@ -42,6 +42,7 @@ export interface Chat {
   creation_date: Timestamp;
   last_message_time: Timestamp;
   creator: Reference;
+  first_comment: Reference;
   readings?: Reading[];
   commenters: Reference[];
   followers: Reference[];
@@ -107,6 +108,8 @@ export interface Notification {
 }
 
 export interface Connection {
-  id: string;
-  owner: string;
+    id: Id;
+    owner: Reference;
+    link: string;
+    type: string;
 }

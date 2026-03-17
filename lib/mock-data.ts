@@ -1,5 +1,6 @@
 import type {
   User,
+  Admin,
   Prototype,
   Reading,
   Chat,
@@ -7,231 +8,269 @@ import type {
   FollowedChat,
   Notification,
   Connection,
-} from "./types"
+} from "@/lib/types"
 
-// ── Users ──────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Users
+// ─────────────────────────────────────────────
 
 export const USERS: User[] = [
   {
-    id: "u1",
-    email: "ivan@heliolab.mx",
-    password: "demo1234",
-    full_name: "Ivan Zuniga",
-    degree: "Doctor en Mecatronica Aplicada",
-    profile_picture: "/avatars/ivan.jpg",
-    last_seen_chat_time: "2026-02-17T10:00:00-06:00",
+    id: "user-1",
+    name: "Valentina",
+    last_name: "Reyes Morales",
+    hashed_password: "$2b$10$mockhashedpassword1",
+    role: "researcher",
+    email: "valentina.reyes@heliolab.mx",
+    degree: "Dra. en Ingeniería Solar",
+    profile_picture: "https://api.dicebear.com/9.x/avataaars/svg?seed=valentina",
+    last_chat_seen_time: new Date("2026-03-15T18:00:00"),
+    last_interaction_time: new Date("2026-03-15T20:30:00"),
     timezone: "America/Mexico_City",
   },
   {
-    id: "u2",
-    email: "manuel@heliolab.mx",
-    password: "demo1234",
-    full_name: "Manuel Velazco",
-    degree: "Doctor en Tecnologias de la Informacion",
-    profile_picture: "/avatars/manuel.jpg",
-    last_seen_chat_time: "2026-02-17T09:30:00-06:00",
-    timezone: "Europe/Madrid",
+    id: "user-2",
+    name: "Rodrigo",
+    last_name: "Figueroa Castro",
+    hashed_password: "$2b$10$mockhashedpassword2",
+    role: "researcher",
+    email: "rodrigo.figueroa@heliolab.mx",
+    degree: "M.C. en Energías Renovables",
+    profile_picture: "https://api.dicebear.com/9.x/avataaars/svg?seed=rodrigo",
+    last_chat_seen_time: new Date("2026-03-15T17:00:00"),
+    last_interaction_time: new Date("2026-03-15T19:45:00"),
+    timezone: "America/Mexico_City",
   },
   {
-    id: "u3",
-    email: "francisco@heliolab.mx",
-    password: "demo1234",
-    full_name: "Francisco Cardoso",
-    degree: "Doctor en Energias Renovables",
-    profile_picture: "/avatars/francisco.jpg",
-    last_seen_chat_time: "2026-02-17T08:00:00-06:00",
+    id: "user-3",
+    name: "Sofía",
+    last_name: "Mendoza Ruiz",
+    hashed_password: "$2b$10$mockhashedpassword3",
+    role: "researcher",
+    email: "sofia.mendoza@heliolab.mx",
+    degree: "Ing. en Sistemas Fotovoltaicos",
+    profile_picture: "https://api.dicebear.com/9.x/avataaars/svg?seed=sofia",
+    last_chat_seen_time: new Date("2026-03-14T22:00:00"),
+    last_interaction_time: new Date("2026-03-15T09:10:00"),
     timezone: "America/Mexico_City",
   },
 ]
 
-// ── Prototypes ─────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Admins
+// ─────────────────────────────────────────────
+
+export const ADMINS: Admin[] = [
+  {
+    id: "admin-1",
+    name: "Carlos",
+    last_name: "Ortega Vega",
+    hashed_password: "$2b$10$mockhashedpassword_admin1",
+    role: "admin",
+  },
+]
+
+// ─────────────────────────────────────────────
+// Readings (subtable of Prototype)
+// ─────────────────────────────────────────────
+
+export const READINGS: Reading[] = Array.from({ length: 48 }, (_, i) => ({
+  id: `reading-${i + 1}`,
+  date: new Date(Date.now() - (47 - i) * 30 * 60 * 1000), // every 30 min, last 24 h
+  current: parseFloat((5 + Math.sin(i / 4) * 2 + Math.random() * 0.5).toFixed(2)),
+  voltage: parseFloat((220 + Math.cos(i / 5) * 10 + Math.random() * 2).toFixed(2)),
+  irradiance: parseFloat((600 + Math.sin(i / 3) * 200 + Math.random() * 30).toFixed(2)),
+}))
+
+// ─────────────────────────────────────────────
+// Prototypes
+// ─────────────────────────────────────────────
 
 export const PROTOTYPES: Prototype[] = [
   {
-    id: "p1",
-    name: "Prototipo MX1",
-    location: { lat: 19.4326, lng: -99.1332 },
-    owner: "u1",
+    id: "TVcXS3QLvugbY6AYMcUk",
+    name: "Prototipo Alfa — Azotea Sur",
+    code: "AUTH-CODE-ALFA",
+    location: { latitude: 20.5888, longitude: -100.3899 }, // Querétaro
+    owner: "user-1",
+    readings: READINGS,
+  },
+  {
+    id: "prototype-2",
+    name: "Prototipo Beta — Campo Norte",
+    code: "AUTH-CODE-BETA",
+    location: { latitude: 20.6024, longitude: -100.4012 },
+    owner: "user-2",
+    readings: [],
   },
 ]
 
-// ── Readings (simulated hourly for one day) ────────────────────────
-
-function generateReadings(): Reading[] {
-  const base = new Date("2026-02-16T12:00:00-06:00")
-  const readings: Reading[] = []
-  const values = [32, 35, 40, 45, 50, 55, 60, 65, 58, 62, 68, 55, 48, 42, 38, 35, 30, 28, 25]
-  for (let i = 0; i < values.length; i++) {
-    const date = new Date(base.getTime() + i * 30 * 60 * 1000)
-    readings.push({
-      id: `r${i + 1}`,
-      prototypeId: "p1",
-      date: date.toISOString(),
-      current: values[i] + Math.random() * 5 - 2.5,
-      voltage: values[i] * 0.8 + Math.random() * 3,
-      irradiance: values[i] * 12 + Math.random() * 50,
-    })
-  }
-  return readings
-}
-
-export const READINGS: Reading[] = generateReadings()
-
-// ── Chats ──────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Chats
+// ─────────────────────────────────────────────
 
 export const CHATS: Chat[] = [
   {
-    id: "ch1",
-    creation_date: "2026-02-16T13:00:00-06:00",
-    creator: "u1",
-    participants: ["u1", "u2", "u3"],
+    id: "chat-1",
+    creation_date: new Date("2026-03-15T10:00:00"),
+    last_message_time: new Date("2026-03-15T10:45:00"),
+    creator: "user-1",
+    first_comment: "comment-1",
+    readings: READINGS.slice(0, 6), // snapshot copied at comment time
+    commenters: ["user-1", "user-2"],
+    followers: ["user-3"],
   },
   {
-    id: "ch2",
-    creation_date: "2026-02-16T16:12:00-06:00",
-    creator: "u2",
-    participants: ["u1", "u2"],
+    id: "chat-2",
+    creation_date: new Date("2026-03-14T14:30:00"),
+    last_message_time: new Date("2026-03-14T15:10:00"),
+    creator: "user-2",
+    first_comment: "comment-3",
+    readings: READINGS.slice(10, 18),
+    commenters: ["user-2"],
+    followers: ["user-1"],
   },
   {
-    id: "ch3",
-    creation_date: "2026-02-17T09:30:00-06:00",
-    creator: "u3",
-    participants: ["u1", "u3"],
+    id: "chat-3",
+    creation_date: new Date("2026-03-13T09:00:00"),
+    last_message_time: new Date("2026-03-13T09:00:00"),
+    creator: "user-3",
+    first_comment: "comment-4",
+    commenters: ["user-3"],
+    followers: [],
   },
 ]
 
-// ── Comments ───────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Comments
+// ─────────────────────────────────────────────
 
 export const COMMENTS: Comment[] = [
   {
-    id: "cm1",
-    chat: "ch1",
-    full_name: "Ivan Zuniga",
-    creation_date: "2026-02-16T13:00:00-06:00",
-    author: "u1",
-    degree: "Doctor en Mecatronica Aplicada",
-    text: "El comportamiento en esta seccion del grafico es inusual para la hora del dia. Podrian echarle un vistazo?",
-    highlight_start: "2026-02-16T12:30:00-06:00",
-    highlight_end: "2026-02-16T14:00:00-06:00",
-    prototype: "p1",
+    id: "comment-1",
+    chat: "chat-1",
+    full_name: "Valentina Reyes Morales",
+    creation_date: new Date("2026-03-15T10:00:00"),
+    author: "user-1",
+    degree: "Dra. en Ingeniería Solar",
+    text: "Se observa una caída de voltaje inusual entre las 08:00 y las 09:30. ¿Podría estar relacionada con la nubosidad registrada esa mañana?",
+    highlight_start: new Date("2026-03-15T08:00:00"),
+    highlight_end: new Date("2026-03-15T09:30:00"),
   },
   {
-    id: "cm2",
-    chat: "ch2",
-    full_name: "Manuel Velazco",
-    creation_date: "2026-02-16T16:12:00-06:00",
-    author: "u2",
-    degree: "Doctor en Tecnologias de la Informacion",
-    text: "La produccion del panel decayo abruptamente en este periodo. @Ivan Zuniga, podrias revisar la configuracion del prototipo?",
-    mentions: [{ userId: "u1", full_name: "Ivan Zuniga" }],
-    highlight_start: "2026-02-16T16:00:00-06:00",
-    highlight_end: "2026-02-16T17:30:00-06:00",
-    prototype: "p1",
+    id: "comment-2",
+    chat: "chat-1",
+    full_name: "Rodrigo Figueroa Castro",
+    creation_date: new Date("2026-03-15T10:45:00"),
+    author: "user-2",
+    degree: "M.C. en Energías Renovables",
+    text: "Concuerdo. La irradiancia también muestra un valle pronunciado en ese mismo intervalo. Habría que correlacionar con los datos meteorológicos.",
   },
   {
-    id: "cm3",
-    chat: "ch3",
-    full_name: "Francisco Cardoso",
-    creation_date: "2026-02-17T09:30:00-06:00",
-    author: "u3",
-    degree: "Doctor en Energias Renovables",
-    text: "Los valores de irradiancia se normalizaron esta manana. Parece que el problema fue transitorio.",
-    prototype: "p1",
+    id: "comment-3",
+    chat: "chat-2",
+    full_name: "Rodrigo Figueroa Castro",
+    creation_date: new Date("2026-03-14T14:30:00"),
+    author: "user-2",
+    degree: "M.C. en Energías Renovables",
+    text: "Pico de corriente destacable alrededor del mediodía. Corresponde con el ángulo de incidencia óptimo.",
+    highlight_start: new Date("2026-03-14T12:00:00"),
+    highlight_end: new Date("2026-03-14T13:00:00"),
   },
   {
-    id: "cm4",
-    chat: "ch1",
-    full_name: "Manuel Velazco",
-    creation_date: "2026-02-16T14:05:00-06:00",
-    author: "u2",
-    degree: "Doctor en Tecnologias de la Informacion",
-    text: "Confirmo, yo tambien veo la anomalia. Podria estar relacionada con la calibracion del sensor.",
-  },
-  {
-    id: "cm5",
-    chat: "ch2",
-    full_name: "Ivan Zuniga",
-    creation_date: "2026-02-16T17:00:00-06:00",
-    author: "u1",
-    degree: "Doctor en Mecatronica Aplicada",
-    text: "Ya revise la configuracion, parece que hubo una interrupcion en el suministro electrico. Voy a programar un reinicio.",
+    id: "comment-4",
+    chat: "chat-3",
+    full_name: "Sofía Mendoza Ruiz",
+    creation_date: new Date("2026-03-13T09:00:00"),
+    author: "user-3",
+    degree: "Ing. en Sistemas Fotovoltaicos",
+    text: "Inicio de monitoreo continuo del prototipo Beta. Se configuraron los intervalos de muestreo a 30 minutos.",
   },
 ]
 
-// ── Followed Chats ─────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Followed Chats
+// ─────────────────────────────────────────────
 
 export const FOLLOWED_CHATS: FollowedChat[] = [
   {
-    id: "fc1",
-    creation_date: "2026-02-16T13:00:00-06:00",
+    id: "followed-1",
+    creation_date: new Date("2026-03-15T10:00:00"),
     index: 0,
-    owner: "u1",
-    chat: "ch1",
-    last_seen_message_time: "2026-02-16T14:05:00-06:00",
-    last_message_time: "2026-02-16T14:05:00-06:00",
+    owner: "user-1",
+    chat: "chat-1",
+    last_message_seen_time: "comment-2", // Reference to last Comment seen
     silenced: false,
-    name: "Comportamiento anormal del sensor",
+    name: "Caída de voltaje mar. 15",
   },
   {
-    id: "fc2",
-    creation_date: "2026-02-16T16:12:00-06:00",
-    index: 1,
-    owner: "u1",
-    chat: "ch2",
-    last_seen_message_time: "2026-02-16T16:12:00-06:00",
-    last_message_time: "2026-02-16T17:00:00-06:00",
+    id: "followed-2",
+    creation_date: new Date("2026-03-14T14:30:00"),
+    index: 0,
+    owner: "user-1",
+    chat: "chat-2",
+    last_message_seen_time: "comment-3",
     silenced: false,
-    name: "Anomalia 16 de Feb",
+    name: "Pico mediodía mar. 14",
+  },
+  {
+    id: "followed-3",
+    creation_date: new Date("2026-03-15T10:00:00"),
+    index: 0,
+    owner: "user-2",
+    chat: "chat-1",
+    last_message_seen_time: "comment-1",
+    silenced: false,
+    name: "Anomalía voltaje Alfa",
   },
 ]
 
-// ── Notifications ──────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Notifications
+// ─────────────────────────────────────────────
 
 export const NOTIFICATIONS: Notification[] = [
   {
-    id: "n1",
-    type: "new_comment",
+    id: "notification-1",
+    type: "resumed-activity",
     has_been_read: false,
-    saved_chat: "ch1",
-    creation_date: "2026-02-16T14:05:00-06:00",
-    text: "Manuel Velazco respondio en el chat",
-    actor_name: "Manuel Velazco",
+    followed_chat: "followed-1",
+    user: "user-1",
+    creation_date: new Date("2026-03-15T10:45:00"),
   },
   {
-    id: "n2",
-    type: "mention",
-    has_been_read: false,
-    saved_chat: "ch2",
-    creation_date: "2026-02-16T16:12:00-06:00",
-    text: "Manuel Velazco te menciono en un comentario",
-    actor_name: "Manuel Velazco",
-  },
-  {
-    id: "n3",
-    type: "new_reply",
+    id: "notification-2",
+    type: "resumed-activity",
     has_been_read: true,
-    saved_chat: "ch3",
-    creation_date: "2026-02-17T09:30:00-06:00",
-    text: "Francisco Cardoso dejo un nuevo comentario",
-    actor_name: "Francisco Cardoso",
+    followed_chat: "followed-3",
+    user: "user-2",
+    creation_date: new Date("2026-03-15T10:45:00"),
   },
-]
-
-// ── Connections ────────────────────────────────────────────────────
+];
 
 export const CONNECTIONS: Connection[] = [
   {
-    id: "cn1",
-    owner: "u1",
-    name: "Carpeta del equipo",
-    url: "https://drive.google.com",
-    icon: "folder-open",
+    id: "connection-1",
+    owner: "user-1",
+    link: "https://orcid.org/0000-0001-2345-6789",
+    type: "orcid",
   },
   {
-    id: "cn2",
-    owner: "u1",
-    name: "Link de llamada",
-    url: "https://meet.google.com",
-    icon: "phone",
+    id: "connection-2",
+    owner: "user-1",
+    link: "https://scholar.google.com/citations?user=abc123",
+    type: "google_scholar",
+  },
+  {
+    id: "connection-3",
+    owner: "user-2",
+    link: "https://www.researchgate.net/profile/Rodrigo-Figueroa",
+    type: "researchgate",
+  },
+  {
+    id: "connection-4",
+    owner: "user-3",
+    link: "https://linkedin.com/in/sofia-mendoza-ruiz",
+    type: "linkedin",
   },
 ]

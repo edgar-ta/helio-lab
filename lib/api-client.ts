@@ -17,7 +17,7 @@ import type {
   Notification,
   Connection,
 } from "./types";
-import type { UserLocal } from "./types-local";
+import type { ChatAsPost, UserLocal } from "./types-local";
 import {
   USERS,
   PROTOTYPES,
@@ -65,7 +65,17 @@ export async function getPrototype(
 }
 
 export async function getPrototypes(): Promise<Prototype[]> {
-  return PROTOTYPES;
+  const res = await fetch("/api/prototype/get_prototypes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+ 
+  if (!res.ok) {
+    throw new Error(`getPrototypes failed: ${res.status}`);
+  }
+ 
+  const data = await res.json();
+  return data.prototypes as Prototype[];
 }
 
 export async function getReadings(parameters: {
@@ -291,4 +301,29 @@ export async function addComment(parameters: {
   if (!response.ok)
     throw new Error(`Failed to add comment: ${response.status}`);
   return response.json();
+}
+
+export async function getFeed(
+  researcherId: string,
+  latestChatId?: string
+): Promise<ChatAsPost[]> {
+  const res = await fetch(`/api/researcher/${researcherId}/get_feed`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ latest_chat_id: latestChatId ?? null }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`getFeed failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+  return data.chats.map((c: any) => ({
+    ...c,
+    creation_date: new Date(c.creation_date),
+    readings: c.readings.map((r: any) => ({
+      ...r,
+      date: new Date(r.date),
+    })),
+  })) as ChatAsPost[];
 }
