@@ -17,7 +17,7 @@ import type {
   Notification,
   Connection,
 } from "./types";
-import type { ChatAsPost, UserLocal } from "./types-local";
+import type { ChatAsHighlight, ChatAsPost, UserLocal } from "./types-local";
 import {
   USERS,
   PROTOTYPES,
@@ -101,8 +101,9 @@ export async function getReadings(parameters: {
 }
 
 export async function getComments(prototypeId?: string): Promise<Comment[]> {
-  return comments;
+  return [];
 }
+
 
 export async function getChatMessages(chatId: string): Promise<Comment[]> {
   return comments.filter((c) => c.chat === chatId);
@@ -303,10 +304,12 @@ export async function addComment(parameters: {
   return response.json();
 }
 
-export async function getFeed(
+export async function getFeed(parameters: {
   researcherId: string,
   latestChatId?: string
-): Promise<ChatAsPost[]> {
+}): Promise<ChatAsPost[]> {
+  const { researcherId, latestChatId } = parameters;
+
   const res = await fetch(`/api/researcher/${researcherId}/get_feed`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -326,4 +329,26 @@ export async function getFeed(
       date: new Date(r.date),
     })),
   })) as ChatAsPost[];
+}
+
+export async function getHighlights(parameters: {
+  prototypeId: string
+  latestDate?: Date
+}): Promise<ChatAsHighlight[]> {
+  const res = await fetch(`/api/prototype/${parameters.prototypeId}/get_highlights`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ latest_date: parameters.latestDate?.toISOString() ?? null }),
+  })
+
+  if (!res.ok) {
+    throw new Error(`getHighlights failed: ${res.status}`)
+  }
+
+  const data = await res.json()
+  return data.highlights.map((h: any) => ({
+    ...h,
+    start_date: new Date(h.start_date),
+    end_date: new Date(h.end_date),
+  })) as ChatAsHighlight[]
 }

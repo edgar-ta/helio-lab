@@ -22,7 +22,7 @@ export async function POST(
 
   let query = db
     .collection("Chat")
-    .orderBy("creation_date", "desc") as admin.firestore.Query;
+    .orderBy("creation_date", "asc") as admin.firestore.Query;
 
   if (latest_chat_id) {
     const latestChatSnap = await db.collection("Chat").doc(latest_chat_id).get();
@@ -34,7 +34,7 @@ export async function POST(
     }
     query = query.where(
       "creation_date",
-      "<=",
+      ">=",
       latestChatSnap.data()!.creation_date
     );
   }
@@ -80,7 +80,7 @@ export async function POST(
           voltage: d.voltage as number,
           irradiance: d.irradiance as number,
         };
-      });
+      }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
       return {
         chat: chatDoc.id,
@@ -107,5 +107,10 @@ export async function POST(
     })
   );
 
-  return NextResponse.json({ chats: chatAsPostList }, { status: 200 });
+  const sortedChats = chatAsPostList.sort(
+    (a, b) =>
+      new Date(a.creation_date).getTime() - new Date(b.creation_date).getTime()
+  );
+
+  return NextResponse.json({ chats: sortedChats }, { status: 200 });
 }

@@ -95,7 +95,7 @@ export async function POST(
     creation_date: now,
     owner: researcherRef,
     chat: chatDocRef,
-    name: "",
+    name: "Nuevo chat",
     last_message_seen_time: now,
     silenced: false,
   });

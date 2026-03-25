@@ -10,7 +10,6 @@ export async function POST(
   
   const { prototype } = await params;
   const { latest_date } = await req.json();
-  console.log(prototype);
 
   const prototypeRef = db.collection("Prototype").doc(prototype);
   const protoSnap = await prototypeRef.get();

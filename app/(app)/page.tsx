@@ -1,21 +1,24 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
-import { getPrototypes, getReadings, getComments, getFeed, addComment } from "@/lib/api-client"
-import type { Prototype, Reading, Comment } from "@/lib/types"
-import type { ChatAsPost } from "@/lib/types-local"
-import { PrototypeChart, type SelectionRange } from "@/components/prototype-chart"
+import { useEffect, useState, useCallback, useRef } from "react"
+import { getPrototypes, getReadings, getHighlights, getFeed, addComment } from "@/lib/api-client"
+import type { Prototype, Reading } from "@/lib/types"
+import type { ChatAsPost, ChatAsHighlight } from "@/lib/types-local"
+import {
+  PrototypeChart,
+  type SelectionRange,
+  type PrototypeChartHandle,
+} from "@/components/prototype-chart"
 import { ChatsFeed } from "@/components/chats-feed"
-import { NewCommentDialog } from "@/components/new-comment-dialog"
+import { ChartCommentBar } from "@/components/chart-comment-bar"
 import { ConnectionsPanel } from "@/components/connections-panel"
-import { ChartCommentDrawer } from "@/components/chart-comment-drawer"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 
 interface PrototypeData {
   prototype: Prototype
   readings: Reading[]
-  comments: Comment[]
+  highlights: ChatAsHighlight[]
 }
 
 export default function DashboardPage() {
@@ -25,30 +28,29 @@ export default function DashboardPage() {
   const [activeIndex, setActiveIndex] = useState(0)
   const [feed, setFeed] = useState<ChatAsPost[]>([])
   const [loading, setLoading] = useState(true)
-
-  // Drawer state
-  const [drawerOpen, setDrawerOpen] = useState(false)
   const [selection, setSelection] = useState<SelectionRange | null>(null)
+
+  const chartRef = useRef<PrototypeChartHandle>(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
       const [prototypes, feedChats] = await Promise.all([
         getPrototypes(),
-        getFeed(user!.id),
+        getFeed({ researcherId: user!.id }),
       ])
 
       const perPrototype = await Promise.all(
         prototypes.map(async (prototype) => {
-          const [rawReadings, comments] = await Promise.all([
+          const [rawReadings, highlights] = await Promise.all([
             getReadings({ prototypeId: prototype.id }),
-            getComments(prototype.id),
+            getHighlights({ prototypeId: prototype.id }),
           ])
           const readings: Reading[] = rawReadings.map((r) => ({
             ...r,
             date: new Date(r.date),
           }))
-          return { prototype, readings, comments }
+          return { prototype, readings, highlights }
         })
       )
 
@@ -65,23 +67,27 @@ export default function DashboardPage() {
 
   function handleSelectionComplete(range: SelectionRange) {
     setSelection(range)
-    setDrawerOpen(true)
   }
 
-  function handleDrawerClose() {
-    setDrawerOpen(false)
-    setTimeout(() => setSelection(null), 350)
+  function handleClearSelection() {
+    setSelection(null)
+    chartRef.current?.clearSelection()
+  }
+
+  function handleSetActiveIndex(i: number) {
+    handleClearSelection()
+    setActiveIndex(i)
   }
 
   const active = prototypeData[activeIndex]
   const count = prototypeData.length
 
   function prev() {
-    setActiveIndex((i) => (i - 1 + count) % count)
+    handleSetActiveIndex((activeIndex - 1 + count) % count)
   }
 
   function next() {
-    setActiveIndex((i) => (i + 1) % count)
+    handleSetActiveIndex((activeIndex + 1) % count)
   }
 
   return (
@@ -101,9 +107,10 @@ export default function DashboardPage() {
         ) : (
           <div className="flex flex-col gap-3">
             <PrototypeChart
+              ref={chartRef}
               prototypeName={active.prototype.name}
               readings={active.readings}
-              comments={active.comments}
+              highlights={active.highlights}
               onSelectionComplete={handleSelectionComplete}
             />
 
@@ -121,7 +128,7 @@ export default function DashboardPage() {
                   {prototypeData.map((_, i) => (
                     <button
                       key={i}
-                      onClick={() => setActiveIndex(i)}
+                      onClick={() => handleSetActiveIndex(i)}
                       aria-label={`Prototipo ${i + 1}`}
                       className={`h-2 rounded-full transition-all ${
                         i === activeIndex
@@ -144,39 +151,26 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* New comment action */}
+        {/* Persistent comment bar */}
         {active && (
-          <div className="flex items-center justify-between">
-            <div />
-            <NewCommentDialog
-              prototypeId={active.prototype.id}
-              onCommentAdded={loadData}
-            />
-          </div>
+          <ChartCommentBar
+            selection={selection}
+            prototypeId={active.prototype.id}
+            userId={user!.id}
+            onClearSelection={handleClearSelection}
+            onCommentAdded={loadData}
+            addComment={addComment}
+          />
         )}
 
         {/* Chats feed */}
         <ChatsFeed chats={feed} />
       </div>
 
-      {/* Right sidebar: connections */}
+      {/* Right sidebar */}
       <div className="w-64 shrink-0">
         <ConnectionsPanel />
       </div>
-
-      {/* Chart section comment drawer */}
-      {active && (
-        <ChartCommentDrawer
-          open={drawerOpen}
-          startDate={selection?.startDate ?? null}
-          endDate={selection?.endDate ?? null}
-          prototypeId={active.prototype.id}
-          userId={user!.id}
-          onClose={handleDrawerClose}
-          onCommentAdded={loadData}
-          addComment={addComment}
-        />
-      )}
     </div>
   )
 }
