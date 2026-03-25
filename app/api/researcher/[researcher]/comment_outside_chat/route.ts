@@ -7,7 +7,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { researcher: string } }
 ) {
-  const { researcher } = params;
+  const { researcher } = await params;
   const { prototype, start_date, end_date, comment } = await req.json();
 
   if (!comment || !comment.trim()) {
@@ -48,7 +48,6 @@ export async function POST(
     const startTs = admin.firestore.Timestamp.fromDate(new Date(start_date));
     const endTs = admin.firestore.Timestamp.fromDate(new Date(end_date));
 
-    // Query readings from the prototype's Reading subcollection within the date range
     const readingsSnap = await prototypeRef
       .collection("Reading")
       .where("date", ">=", startTs)
@@ -77,7 +76,7 @@ export async function POST(
 
   const commentData: Record<string, unknown> = {
     chat: chatDocRef,
-    full_name: researcherData.full_name,
+    full_name: `${researcherData.name} ${researcherData.last_name}`,
     degree: researcherData.degree,
     creation_date: now,
     author: researcherRef,
@@ -86,14 +85,17 @@ export async function POST(
   if (highlightStart) commentData.highlight_start = highlightStart;
   if (highlightEnd) commentData.highlight_end = highlightEnd;
 
-  await db.collection("Comment").add(commentData);
+  const commentDocRef = await db.collection("Comment").add(commentData);
 
-  // --- Step 3: Create a FollowedChat for the commenter ---
+  // --- Step 3: Write first_comment back onto the Chat ---
+  await chatDocRef.update({ first_comment: commentDocRef });
+
+  // --- Step 4: Create a FollowedChat for the commenter ---
   await db.collection("FollowedChat").add({
     creation_date: now,
     owner: researcherRef,
     chat: chatDocRef,
-    name: "",
+    name: "Nuevo chat",
     last_message_seen_time: now,
     silenced: false,
   });

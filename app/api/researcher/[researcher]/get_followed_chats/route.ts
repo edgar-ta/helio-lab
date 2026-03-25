@@ -19,7 +19,6 @@ export async function POST(
     new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
   );
 
-  // Get all chats that have had activity in the last 3 days
   const activeChatsSnap = await db
     .collection("Chat")
     .where("last_message_time", ">=", threeDaysAgo)
@@ -33,8 +32,6 @@ export async function POST(
     db.collection("Chat").doc(d.id)
   );
 
-  // Fetch the researcher's FollowedChats that match those active chats.
-  // Firestore "in" queries support up to 30 items; batch for larger sets.
   const BATCH_SIZE = 30;
   const results: Record<string, unknown>[] = [];
 
@@ -46,7 +43,18 @@ export async function POST(
       .where("chat", "in", batch)
       .get();
 
-    followedSnap.docs.forEach((d) => results.push({ id: d.id, ...d.data() }));
+    followedSnap.docs.forEach((doc) => {
+      const d = doc.data();
+      results.push({
+        id: doc.id,
+        creation_date: (d.creation_date as admin.firestore.Timestamp).toDate().toISOString(),
+        owner: (d.owner as admin.firestore.DocumentReference).id,
+        chat: (d.chat as admin.firestore.DocumentReference).id,
+        name: d.name,
+        last_message_seen_time: (d.last_message_seen_time as admin.firestore.Timestamp).toDate().toISOString(),
+        silenced: d.silenced,
+      });
+    });
   }
 
   return NextResponse.json({ followed_chats: results }, { status: 200 });

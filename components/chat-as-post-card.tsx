@@ -1,0 +1,147 @@
+"use client"
+
+import { useRouter } from "next/navigation"
+import type { ChatAsPost } from "@/lib/types-local"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { Star, CheckSquare } from "lucide-react"
+
+interface ChatAsPostCardProps {
+  chat: ChatAsPost
+}
+
+const TZ_LABELS: Record<string, string> = {
+  "UTC-08:00": "Baja California",   // Zona Noroeste (PST)
+  "UTC-07:00": "Zona Pacífico",     // Zona Pacífico (MST) — Sonora, Sinaloa, etc.
+  "UTC-06:00": "Ciudad de México",  // Zona Centro (CST) — the most common
+  "UTC-05:00": "Zona Sureste",      // Zona Sureste (EST) — Quintana Roo
+  "UTC+01:00": "España",            // Spain (CET)
+  "UTC+02:00": "España (verano)",   // Spain DST (CEST) — included for robustness
+}
+
+// Parses "UTC±HH:MM" into a total signed offset in minutes
+function utcOffsetToMinutes(offset: string): number {
+  const match = offset.match(/^UTC([+-])(\d{2}):(\d{2})$/)
+  if (!match) return 0
+  const sign = match[1] === "+" ? 1 : -1
+  return sign * (parseInt(match[2]) * 60 + parseInt(match[3]))
+}
+
+function formatWithOffset(date: Date, offsetMinutes: number): string {
+  const local = new Date(date.getTime() + offsetMinutes * 60 * 1000)
+  const h = local.getUTCHours()
+  const m = local.getUTCMinutes().toString().padStart(2, "0")
+  const period = h >= 12 ? "p.m." : "a.m."
+  const h12 = (h % 12 || 12).toString().padStart(2, "0")
+  return `${h12}:${m} ${period}`
+}
+
+// Secondary reference timezone shown alongside the author's when they differ
+const SECONDARY_TZ = "UTC-06:00"
+
+function formatTimeWithTz(
+  date: Date,
+  timezone: string
+): { primary: string; secondary?: string } {
+  const authorLabel = TZ_LABELS[timezone] || timezone
+  const primary = `${formatWithOffset(date, utcOffsetToMinutes(timezone))} — ${authorLabel}`
+
+  if (timezone === SECONDARY_TZ) {
+    return { primary }
+  }
+
+  const secondaryLabel = TZ_LABELS[SECONDARY_TZ]
+  const secondary = `${formatWithOffset(date, utcOffsetToMinutes(SECONDARY_TZ))} — ${secondaryLabel}`
+  return { primary, secondary }
+}
+
+export function ChatAsPostCard({ chat }: ChatAsPostCardProps) {
+  const router = useRouter()
+  const { creator } = chat
+
+  const fullName = `${creator.name} ${creator.last_name}`
+  const initials = [creator.name, creator.last_name]
+    .flatMap((s) => s.split(" "))
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+
+  const countryBadge = TZ_LABELS[creator.timezone] || ""
+  const { primary, secondary } = formatTimeWithTz(
+    new Date(chat.creation_date),
+    creator.timezone
+  )
+  const showSecondary = creator.timezone !== SECONDARY_TZ
+
+  return (
+    <button
+      onClick={() => router.push(`/chat/${chat.chat}`)}
+      className="w-full text-left rounded-lg border border-border bg-card p-4 transition-colors hover:bg-accent/50"
+    >
+      <div className="flex items-start justify-between gap-3">
+        {/* Author info */}
+        <div className="flex items-center gap-3">
+          <Avatar className="size-9">
+            <AvatarImage src={creator.profile_picture} alt={fullName} />
+            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+          </Avatar>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-card-foreground">
+                {fullName}
+              </span>
+              {countryBadge && (
+                <span className="text-[10px] font-medium text-muted-foreground">
+                  {countryBadge}
+                </span>
+              )}
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {creator.degree}
+            </span>
+          </div>
+        </div>
+
+        {/* Prototype name + action icons */}
+        <div className="flex items-center gap-2">
+          {chat.prototype_name && (
+            <span className="text-sm font-medium text-card-foreground">
+              {chat.prototype_name}
+            </span>
+          )}
+          <button
+            className="text-muted-foreground transition-colors hover:text-chart-1"
+            aria-label="Marcar como favorito"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Star className="size-4" />
+          </button>
+          <button
+            className="text-muted-foreground transition-colors hover:text-foreground"
+            aria-label="Marcar como visto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CheckSquare className="size-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* First comment text */}
+      {chat.first_comment_text && (
+        <p className="mt-3 text-sm leading-relaxed text-card-foreground">
+          {chat.first_comment_text}
+        </p>
+      )}
+
+      {/* Time */}
+      <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+        <span>{primary}</span>
+        {showSecondary && secondary && (
+          <>
+            <span className="text-border">{"·"}</span>
+            <span>{secondary}</span>
+          </>
+        )}
+      </div>
+    </button>
+  )
+}
