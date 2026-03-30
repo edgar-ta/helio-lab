@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
-import type { ChatAsPost } from "@/lib/types-local"
+import type { ChatAsPost } from "@/lib/types/frontend-types"
 import { ChatAsPostCard } from "@/components/chat-as-post-card"
 
 interface ChatsFeedProps {

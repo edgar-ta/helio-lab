@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { Send, X, Crosshair } from "lucide-react"
-import type { Comment } from "@/lib/types"
+import type { Comment } from "@/lib/types/backend-types"
 
 interface ChartCommentBarProps {
   selection: { startDate: Date; endDate: Date } | null

@@ -11,8 +11,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts"
-import type { Reading } from "@/lib/types"
-import type { ChatAsHighlight } from "@/lib/types-local"
+import type { Reading } from "@/lib/types/backend-types"
+import type { ChatAsHighlight } from "@/lib/types/frontend-types"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 
 export interface SelectionRange {

@@ -1,14 +1,29 @@
-"use client"
+// app/chat/[chatId]/page.tsx
 
-import { use } from "react"
+import { redirect } from "next/navigation"
+import { cookies } from "next/headers"
+import { db } from "@/lib/firebase-admin"
 import { ChatRoom } from "@/components/chat-room"
+import type { UserLocal } from "@/lib/types/frontend-types"
 
-export default function ChatPage({
+export default async function ChatPage({
   params,
 }: {
   params: Promise<{ chatId: string }>
 }) {
-  const { chatId } = use(params)
+  const { chatId } = await params
 
-  return <ChatRoom chatId={chatId} />
+  const cookieStore = await cookies()
+  const userId = cookieStore.get("session_user_id")?.value
+
+  if (!userId) redirect("/login")
+
+  const userDoc = await db.collection("User").doc(userId).get()
+
+  if (!userDoc.exists) redirect("/login")
+
+  const { hashed_password, ...userLocal } = userDoc.data()!
+  const currentUser = { id: userDoc.id, ...userLocal } as UserLocal
+
+  return <ChatRoom chatId={chatId} currentUser={currentUser} />
 }

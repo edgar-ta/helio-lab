@@ -8,7 +8,7 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
 } from "@/lib/api-client"
-import type { Notification } from "@/lib/types"
+import type { Notification } from "@/lib/types/backend-types"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { AtSign, CheckCheck, MessageCircle, Reply } from "lucide-react"

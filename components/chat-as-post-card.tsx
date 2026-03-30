@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import type { ChatAsPost } from "@/lib/types-local"
+import type { ChatAsPost } from "@/lib/types/frontend-types"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Star, CheckSquare } from "lucide-react"
 

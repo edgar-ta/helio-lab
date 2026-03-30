@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from "react"
 import { getPrototypes, getReadings, getHighlights, getFeed, addComment } from "@/lib/api-client"
-import type { Prototype, Reading } from "@/lib/types"
-import type { ChatAsPost, ChatAsHighlight } from "@/lib/types-local"
+import type { Prototype, Reading } from "@/lib/types/backend-types"
+import type { ChatAsPost, ChatAsHighlight } from "@/lib/types/frontend-types"
 import {
   PrototypeChart,
   type SelectionRange,

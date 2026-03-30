@@ -1,74 +1,93 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { useAuth } from "@/lib/auth-context"
+import { useEffect, useRef, useState, useTransition } from "react"
 import {
-  getChatMessages,
-  getChat,
   addChatMessage,
   getFollowedChats,
   followChat,
   unfollowChat,
 } from "@/lib/api-client"
-import type { Comment, Chat, FollowedChat } from "@/lib/types"
+import type { UserLocal } from "@/lib/types/frontend-types"
+import type { ChatAsMessage } from "@/lib/types/frontend-types"
+import type { FollowedChat } from "@/lib/types/backend-types"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { USERS } from "@/lib/mock-data"
 import { ArrowLeft, BookmarkPlus, BookmarkMinus, Send } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 
 interface ChatRoomProps {
   chatId: string
+  currentUser: UserLocal
 }
 
-function formatTime(isoString: string) {
-  const d = new Date(isoString)
+function toDate(ts: unknown): Date {
+  if (ts instanceof Date) return ts
+  const t = ts as any
+  const seconds = t._seconds ?? t.seconds
+  return new Date(seconds * 1000)
+}
+
+function formatTime(ts: unknown) {
   return new Intl.DateTimeFormat("es-MX", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
-  }).format(d)
+  }).format(toDate(ts))
 }
 
-function formatDate(isoString: string) {
-  const d = new Date(isoString)
+function formatDate(ts: unknown) {
   return new Intl.DateTimeFormat("es-MX", {
     weekday: "long",
     day: "numeric",
     month: "long",
-  }).format(d)
+  }).format(toDate(ts))
 }
 
-export function ChatRoom({ chatId }: ChatRoomProps) {
-  const { user } = useAuth()
-  const [chat, setChat] = useState<Chat | null>(null)
-  const [messages, setMessages] = useState<Comment[]>([])
+function toDateString(ts: unknown) {
+  return toDate(ts).toDateString()
+}
+
+async function fetchMessages(
+  chatId: string,
+  researcherId: string,
+  limitDate?: string,
+): Promise<ChatAsMessage[]> {
+  const res = await fetch(`/api/chat/${chatId}/get_messages`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      researcher: researcherId,
+      limit_date: limitDate ?? null,
+    }),
+  })
+  if (!res.ok) throw new Error(`get_messages failed: ${res.status}`)
+  const data = await res.json()
+  return data.messages as ChatAsMessage[]
+}
+
+export function ChatRoom({ chatId, currentUser }: ChatRoomProps) {
+  const [messages, setMessages] = useState<ChatAsMessage[]>([])
   const [newMessage, setNewMessage] = useState("")
-  const [sending, setSending] = useState(false)
   const [isFollowed, setIsFollowed] = useState(false)
   const [followedChats, setFollowedChats] = useState<FollowedChat[]>([])
+  const [isPending, startTransition] = useTransition()
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  // Initial load
   useEffect(() => {
-    getChat(chatId).then(setChat)
-    getChatMessages(chatId).then((msgs) => {
-      setMessages(msgs.sort((a, b) =>
-        new Date(a.creation_date).getTime() - new Date(b.creation_date).getTime()
-      ))
-    })
-  }, [chatId])
+    fetchMessages(chatId, currentUser.id).then((msgs) =>
+      setMessages([...msgs].reverse())
+    )
 
-  useEffect(() => {
-    if (user) {
-      getFollowedChats(user.id).then((fcs) => {
-        setFollowedChats(fcs)
-        setIsFollowed(fcs.some((fc) => fc.chat === chatId))
-      })
-    }
-  }, [user, chatId])
+    getFollowedChats({ userId: currentUser.id }).then((fcs) => {
+      setFollowedChats(fcs)
+      setIsFollowed(fcs.some((fc) => fc.chat === chatId))
+    })
+  }, [chatId, currentUser.id])
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -79,38 +98,51 @@ export function ChatRoom({ chatId }: ChatRoomProps) {
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault()
-    if (!user || !newMessage.trim()) return
+    const text = newMessage.trim()
+    if (!text) return
 
-    setSending(true)
-    const msg = await addChatMessage(chatId, {
-      full_name: user.full_name,
-      creation_date: new Date().toISOString(),
-      author: user.id,
-      degree: user.degree,
-      text: newMessage.trim(),
-    })
-    setMessages((prev) => [...prev, msg])
     setNewMessage("")
-    setSending(false)
-  }
 
-  async function handleToggleFollow() {
-    if (!user) return
-    if (isFollowed) {
-      await unfollowChat(user.id, chatId)
-      setIsFollowed(false)
-    } else {
-      // Use the first message text as chat name, truncated
-      const chatName =
-        messages[0]?.text.slice(0, 40) || `Chat ${chatId.slice(0, 6)}`
-      await followChat(user.id, chatId, chatName)
-      setIsFollowed(true)
+    // Optimistic message while the request is in-flight
+    const optimistic: ChatAsMessage = {
+      text,
+      author: {
+        full_name: `${currentUser.name} ${currentUser.last_name}`,
+        degree: currentUser.degree,
+        timezone: currentUser.timezone,
+        profile_picture: currentUser.profile_picture,
+      },
+      creation_time: new Date() as any,
+      is_myself: true,
+    }
+    setMessages((prev) => [...prev, optimistic])
+
+    try {
+      await addChatMessage({
+        userId: currentUser.id,
+        chatId,
+        comment: text,
+      })
+    } catch {
+      // Roll back the optimistic message on failure
+      setMessages((prev) => prev.filter((m) => m !== optimistic))
+      setNewMessage(text)
     }
   }
 
-  const participants = chat?.participants
-    .map((pid) => USERS.find((u) => u.id === pid))
-    .filter(Boolean) ?? []
+  function handleToggleFollow() {
+    startTransition(async () => {
+      if (isFollowed) {
+        await unfollowChat(currentUser.id, chatId)
+        setIsFollowed(false)
+      } else {
+        const chatName =
+          messages[0]?.text.slice(0, 40) || `Chat ${chatId.slice(0, 6)}`
+        await followChat({ userId: currentUser.id, chatId, name: chatName })
+        setIsFollowed(true)
+      }
+    })
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -124,27 +156,13 @@ export function ChatRoom({ chatId }: ChatRoomProps) {
           Volver
         </Link>
 
-        <div className="flex flex-1 items-center gap-3">
-          {/* Participant avatars */}
-          <div className="flex -space-x-2">
-            {participants.slice(0, 5).map((p) => (
-              <Avatar key={p!.id} className="size-7 border-2 border-background">
-                <AvatarImage src={p!.profile_picture} alt={p!.full_name} />
-                <AvatarFallback className="text-[9px]">
-                  {p!.full_name.slice(0, 2)}
-                </AvatarFallback>
-              </Avatar>
-            ))}
-          </div>
-          <span className="text-sm text-muted-foreground">
-            {participants.map((p) => p!.full_name.split(" ")[0]).join(", ")}
-          </span>
-        </div>
+        <div className="flex flex-1" />
 
         <Button
           variant={isFollowed ? "outline" : "default"}
           size="sm"
           onClick={handleToggleFollow}
+          disabled={isPending}
           className="gap-1.5"
         >
           {isFollowed ? (
@@ -165,28 +183,25 @@ export function ChatRoom({ chatId }: ChatRoomProps) {
       <ScrollArea className="flex-1" ref={scrollRef}>
         <div className="flex flex-col gap-4 p-6">
           {messages.map((msg, i) => {
-            const isOwn = msg.author === user?.id
-            const author = USERS.find((u) => u.id === msg.author)
-            const initials = msg.full_name
+            const prevMsg = messages[i - 1]
+            const showDate =
+              !prevMsg ||
+              toDateString(msg.creation_time) !==
+                toDateString(prevMsg.creation_time)
+
+            const initials = msg.author.full_name
               .split(" ")
               .map((n) => n[0])
               .join("")
               .slice(0, 2)
 
-            // Show date separator if day changed
-            const prevMsg = messages[i - 1]
-            const showDate =
-              !prevMsg ||
-              new Date(msg.creation_date).toDateString() !==
-                new Date(prevMsg.creation_date).toDateString()
-
             return (
-              <div key={msg.id}>
+              <div key={i}>
                 {showDate && (
                   <div className="my-4 flex items-center gap-3">
                     <div className="h-px flex-1 bg-border" />
                     <span className="text-xs capitalize text-muted-foreground">
-                      {formatDate(msg.creation_date)}
+                      {formatDate(msg.creation_time)}
                     </span>
                     <div className="h-px flex-1 bg-border" />
                   </div>
@@ -194,13 +209,13 @@ export function ChatRoom({ chatId }: ChatRoomProps) {
                 <div
                   className={cn(
                     "flex items-start gap-3",
-                    isOwn && "flex-row-reverse"
+                    msg.is_myself && "flex-row-reverse",
                   )}
                 >
                   <Avatar className="size-8 shrink-0">
                     <AvatarImage
-                      src={author?.profile_picture}
-                      alt={msg.full_name}
+                      src={msg.author.profile_picture}
+                      alt={msg.author.full_name}
                     />
                     <AvatarFallback className="text-[10px]">
                       {initials}
@@ -209,26 +224,26 @@ export function ChatRoom({ chatId }: ChatRoomProps) {
                   <div
                     className={cn(
                       "flex max-w-md flex-col gap-1 rounded-lg px-4 py-2",
-                      isOwn
+                      msg.is_myself
                         ? "bg-foreground text-background"
-                        : "bg-secondary text-secondary-foreground"
+                        : "bg-secondary text-secondary-foreground",
                     )}
                   >
-                    {!isOwn && (
+                    {!msg.is_myself && (
                       <span className="text-xs font-semibold">
-                        {msg.full_name}
+                        {msg.author.full_name}
                       </span>
                     )}
                     <p className="text-sm leading-relaxed">{msg.text}</p>
                     <span
                       className={cn(
                         "text-[10px]",
-                        isOwn
+                        msg.is_myself
                           ? "text-background/70"
-                          : "text-muted-foreground"
+                          : "text-muted-foreground",
                       )}
                     >
-                      {formatTime(msg.creation_date)}
+                      {formatTime(msg.creation_time)}
                     </span>
                   </div>
                 </div>
@@ -250,7 +265,7 @@ export function ChatRoom({ chatId }: ChatRoomProps) {
           <Button
             type="submit"
             size="icon"
-            disabled={sending || !newMessage.trim()}
+            disabled={isPending || !newMessage.trim()}
           >
             <Send className="size-4" />
             <span className="sr-only">Enviar mensaje</span>
