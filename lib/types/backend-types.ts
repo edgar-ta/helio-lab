@@ -1,11 +1,10 @@
-// ─────────────────────────────────────────────
-// Primitives
-// ─────────────────────────────────────────────
-
-type Id = string;
-type Timestamp = Date;
-type GeoPoint = { latitude: number; longitude: number };
-type Reference = Id;
+// BACKEND-TYPES
+// The following definitions describe the data structures
+// stored in the database; by no means do they restrict
+// the shape of the data that the frontend handles internally
+// nor the data that the backend feeds the frontend with through
+// the API
+// Version: 5
 
 // ─────────────────────────────────────────────
 // Namespace: Machine

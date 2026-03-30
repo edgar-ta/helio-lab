@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { getFollowedChats, getNotifications } from "@/lib/api-client"
-import type { FollowedChat, Notification } from "@/lib/types"
+import type { FollowedChat, Notification } from "@/lib/types/backend-types"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -44,12 +44,12 @@ export function AppSidebar() {
   return (
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-border bg-background">
       {/* Header with logo */}
-      <div className="flex items-center justify-center gap-2 border-b border-border px-4 py-3">
+      <Link href={"/"} className="flex items-center justify-center gap-2 border-b border-border px-4 py-3">
         <Sun className="size-5 text-chart-1" strokeWidth={2.5} />
         <span className="text-base font-bold tracking-tight text-foreground">
           HelioLab
         </span>
-      </div>
+      </Link>
 
       {/* User info */}
       <Link

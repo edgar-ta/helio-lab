@@ -16,8 +16,8 @@ import type {
   FollowedChat,
   Notification,
   Connection,
-} from "./types";
-import type { ChatAsHighlight, ChatAsPost, UserLocal } from "./types-local";
+} from "./types/backend-types";
+import type { ChatAsHighlight, ChatAsPost, UserLocal } from "./types/frontend-types";
 import {
   USERS,
   PROTOTYPES,

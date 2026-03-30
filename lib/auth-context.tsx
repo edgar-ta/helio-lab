@@ -9,7 +9,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react"
-import type { UserLocal } from "./types-local"
+import type { UserLocal } from "./types/frontend-types"
 import { authenticateUser, getCurrentUser } from "./api-client"
 
 interface AuthContextValue {

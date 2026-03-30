@@ -9,7 +9,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { researcher: string } }
 ) {
-  const { researcher } = params;
+  const { researcher } = await params;
   const { chat, comment } = await req.json();
 
   if (!chat) {
@@ -41,11 +41,12 @@ export async function POST(
     chatData.last_message_time ?? null;
 
   const now = admin.firestore.Timestamp.now();
+  const fullName = `${researcherData.name} ${researcherData.last_name}`;
 
   // --- Step 1: Create the Comment ---
   const commentRef = await db.collection("Comment").add({
     chat: chatRef,
-    full_name: researcherData.full_name,
+    full_name: fullName,
     degree: researcherData.degree,
     creation_date: now,
     author: researcherRef,

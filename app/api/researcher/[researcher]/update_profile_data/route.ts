@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase-admin";
 
-const VALID_TIMEZONES = [
-  "America/Mexico_City",  // México Centro
-  "America/Cancun",       // México Sureste
-  "America/Chihuahua",    // México Pacífico
-  "America/Tijuana",      // México Noroeste
-  "Europe/Madrid",        // España
+const VALID_UTC_OFFSETS = [
+  "UTC-8",  // México Noroeste
+  "UTC-7",  // México Pacífico
+  "UTC-6",  // México Centro
+  "UTC-5",  // México Sureste
+  "UTC+1",  // España
 ];
 
 // POST /api/researcher/[researcher]/update_profile_data
@@ -14,10 +14,8 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { researcher: string } }
 ) {
-  const { researcher } = params;
+  const { researcher } = await params;
   const { name, last_name, degree, timezone } = await req.json();
-
-  // --- Validate each provided field ---
 
   if (name !== undefined && name !== null) {
     if (typeof name !== "string" || name.length < 5 || name.length > 16) {
@@ -63,22 +61,20 @@ export async function POST(
   }
 
   if (timezone !== undefined && timezone !== null) {
-    if (!VALID_TIMEZONES.includes(timezone)) {
+    if (!VALID_UTC_OFFSETS.includes(timezone)) {
       return NextResponse.json(
-        { error: `timezone must be one of: ${VALID_TIMEZONES.join(", ")}` },
+        { error: `timezone must be one of: ${VALID_UTC_OFFSETS.join(", ")}` },
         { status: 400 }
       );
     }
   }
 
-  // Verify the researcher exists
   const researcherRef = db.collection("User").doc(researcher);
   const researcherSnap = await researcherRef.get();
   if (!researcherSnap.exists) {
     return NextResponse.json({ error: "Researcher not found" }, { status: 404 });
   }
 
-  // Build the update object with only the non-null provided fields
   const updates: Record<string, string> = {};
   if (name !== undefined && name !== null) updates.name = name;
   if (last_name !== undefined && last_name !== null) updates.last_name = last_name;

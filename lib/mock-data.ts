@@ -8,7 +8,7 @@ import type {
   FollowedChat,
   Notification,
   Connection,
-} from "@/lib/types"
+} from "@/lib/types/backend-types"
 
 // ─────────────────────────────────────────────
 // Users
